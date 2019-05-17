@@ -1,0 +1,25 @@
+注解类型大概有这么几个:
+@Cacheable
+@CacheEvict
+@CacheConfig
+
+
+使用:
+@Service
+@CacheConfig(cacheNames="orderItems")
+public class OrderItemService {
+	@Autowired
+	private OrderItemDAO orderItemDAO;
+	@Autowired
+	private ProductImageService productImageService;
+	
+	@Cacheable(key="'orderItems-oid-'+ #p0.id")
+	public List<OrderItem> listByOrder(Order order){
+		return this.orderItemDAO.findByOrder(order);
+	}
+  
+  @CacheEvict(allEntries=true)
+	public void delete(int id){
+		this.orderItemDAO.delete(id);
+	}
+}
