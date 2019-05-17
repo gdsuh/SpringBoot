@@ -5,6 +5,13 @@
 
 
 使用:
+
+一.解决spring+redis方法内部调用同类方法缓存无效的问题
+
+1.获取当前类的代理类
+示例:((OrderItemService)AopContext.currentProxy()).listByOrder(order);
+
+*************************************代码**************************************
 @Service
 @CacheConfig(cacheNames="orderItems")
 public class OrderItemService {
@@ -18,8 +25,52 @@ public class OrderItemService {
 		return this.orderItemDAO.findByOrder(order);
 	}
   
-  @CacheEvict(allEntries=true)
+  	@CacheEvict(allEntries=true)
 	public void delete(int id){
 		this.orderItemDAO.delete(id);
 	}
+	
+	public void fill(Order order){
+		
+		/*
+		 * 如果是在同一个类的内部直接调用的话，调用的是OrderItemService的实例，
+		 * 不会走代理。因此，注解缓存不会生效。
+		 * 解决方法:获取当前类的代理类
+		 */
+		List<OrderItem> orderItems = ((OrderItemService)AopContext.currentProxy()).listByOrder(order);
+		
+		int totalNumber = 0;           
+		for (OrderItem oi :orderItems) {
+		    totalNumber+=oi.getNumber();//总数
+		}
+
+		order.setTotal(total);
+	}
+	
 }
+*************************************代码**************************************
+
+
+2.SpringBoot要在启动类加上注解@EnableAspectJAutoProxy(exposeProxy = true),否则会抛出异常
+ Cannot find current proxy: Set 'exposeProxy' property on Advised to 'true' to make it available.
+
+*************************************代码**************************************
+@SpringBootApplication
+@EnableCaching
+@EnableAspectJAutoProxy(exposeProxy = true)
+@EnableElasticsearchRepositories(basePackages = "com.igenebio.crassus.es")
+@EnableJpaRepositories(basePackages = {"com.igenebio.crassus.dao", "com.igenebio.crassus.pojo"})
+public class Application {//启动类
+	static{
+		PortUtil.checkPort(6379, "Redis 服务端", true);
+		PortUtil.checkPort(9300,"ElasticSearch 服务端",true);
+        	s//PortUtil.checkPort(5601,"Kibana 工具", true);
+	}
+	public static void main(String[] args) {
+		SpringApplication.run(Application.class, args);
+	}
+
+}
+*************************************代码**************************************
+
+
